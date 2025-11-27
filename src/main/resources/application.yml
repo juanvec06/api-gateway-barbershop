@@ -1,0 +1,43 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      routes:
+        - id: microservice-barberos
+          uri: http://localhost:8081
+          predicates:
+            - Path=/barberos/**
+          filters:
+            - StripPrefix=1
+        - id: microservice-servicios
+          uri: http://localhost:8082
+          predicates:
+            - Path=/servicios/**
+          filters:
+            - StripPrefix=1
+        - id: microservice-reservas
+          uri: http://localhost:8083
+          predicates:
+            - Path=/reservas/**
+          filters:
+            - StripPrefix=1
+        - id: microservice-reportes
+          uri: http://localhost:8084
+          predicates:
+            - Path=/reportes/**
+          filters:
+            - StripPrefix=1
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8080/realms/sistema
+
+logging:
+  level:
+    org.springframework.cloud.gateway: DEBUG
+    org.springframework.security: DEBUG
