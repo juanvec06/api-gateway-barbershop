@@ -14,6 +14,8 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverterAdapter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.web.bind.annotation.CrossOrigin;
+
 import reactor.core.publisher.Mono;
 
 import java.util.Collection;
@@ -25,6 +27,7 @@ import java.util.stream.Collectors;
 @Configuration
 @EnableWebFluxSecurity
 @EnableReactiveMethodSecurity
+//@CrossOrigin(origins = "http://localhost:4200")
 public class SecurityConfig {
 
     @Bean
