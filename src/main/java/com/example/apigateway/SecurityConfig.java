@@ -47,34 +47,34 @@ public class SecurityConfig {
                 // 2. ROL: ADMINISTRADOR
                 // ------------------------------------------------------------
                 // Servicios (Admin)
-                .pathMatchers("/servicios/admin/**").hasAnyAuthority("admin", "administrador")
+                .pathMatchers("/servicios/admin/**").hasAuthority("ADMIN")
                 
                 // Barberos (Admin)
-                .pathMatchers("/barberos/admin/**").hasAnyAuthority("admin", "administrador")
+                .pathMatchers("/barberos/admin/**").hasAuthority("ADMIN")
                 
                 // Reportes (Admin)
-                .pathMatchers("/reportes/admin/**").hasAnyAuthority("admin", "administrador")
+                .pathMatchers("/reportes/admin/**").hasAuthority("ADMIN")
 
                 // ------------------------------------------------------------
                 // 3. ROL: CLIENTE
                 // ------------------------------------------------------------
                 // Reservas: Crear
-                .pathMatchers(HttpMethod.POST, "/reservas").hasAuthority("cliente")
+                .pathMatchers(HttpMethod.POST, "/reservas").hasAuthority("CLIENT")
                 // Reservas: Ver historial propio
-                .pathMatchers(HttpMethod.GET, "/reservas/cliente/**").hasAuthority("cliente")
+                .pathMatchers(HttpMethod.GET, "/reservas/cliente/**").hasAuthority("CLIENT")
                 // Reservas: Reprogramar y Cancelar (usamos * para el ID)
-                .pathMatchers(HttpMethod.PUT, "/reservas/*/reprogramar").hasAuthority("cliente")
-                .pathMatchers(HttpMethod.PUT, "/reservas/*/cancelar").hasAuthority("cliente")
+                .pathMatchers(HttpMethod.PUT, "/reservas/*/reprogramar").hasAuthority("CLIENT")
+                .pathMatchers(HttpMethod.PUT, "/reservas/*/cancelar").hasAuthority("CLIENT")
 
                 // ------------------------------------------------------------
                 // 4. ROL: BARBERO
                 // ------------------------------------------------------------
                 // Reservas: Ver agenda asignada
-                .pathMatchers(HttpMethod.GET, "/reservas/barbero/**").hasAuthority("barbero")
+                .pathMatchers(HttpMethod.GET, "/reservas/barbero/**").hasAuthority("BARBER")
                 // Reservas: Cambiar estado (INICIADA/FINALIZADA)
-                .pathMatchers(HttpMethod.PUT, "/reservas/*/estado").hasAuthority("barbero")
+                .pathMatchers(HttpMethod.PUT, "/reservas/*/estado").hasAuthority("BARBER")
                 // Reportes: Métricas propias
-                .pathMatchers(HttpMethod.GET, "/reportes/barbero/**").hasAuthority("barbero")
+                .pathMatchers(HttpMethod.GET, "/reportes/barbero/**").hasAuthority("BARBER")
 
                 // ------------------------------------------------------------
                 // RESTO DE RUTAS
@@ -100,7 +100,7 @@ public class SecurityConfig {
 // Convertidor de roles de Keycloak
 class KeycloakRealmRoleConverterWebFlux implements Converter<Jwt, Collection<GrantedAuthority>> {
     // Asegúrate de que este ID coincida con tu cliente en Keycloak si usas roles de cliente
-    private static final String KEYCLOAK_CLIENT_ID_WITH_USER_ROLES = "sistema-desktop"; 
+    private static final String KEYCLOAK_CLIENT_ID_WITH_USER_ROLES = "frontend-client"; 
     private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(KeycloakRealmRoleConverterWebFlux.class);
 
     @Override
