@@ -8,25 +8,25 @@ spring:
     gateway:
       routes:
         - id: microservice-barberos
-          uri: http://localhost:8081
+          uri: http://localhost:8082
           predicates:
             - Path=/barberos/**
           filters:
             - StripPrefix=1
         - id: microservice-servicios
-          uri: http://localhost:8082
+          uri: http://localhost:8083
           predicates:
             - Path=/servicios/**
           filters:
             - StripPrefix=1
         - id: microservice-reservas
-          uri: http://localhost:8083
+          uri: http://localhost:8084
           predicates:
             - Path=/reservas/**
           filters:
             - StripPrefix=1
         - id: microservice-reportes
-          uri: http://localhost:8084
+          uri: http://localhost:8085
           predicates:
             - Path=/reportes/**
           filters:
