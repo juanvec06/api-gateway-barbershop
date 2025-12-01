@@ -14,7 +14,9 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverterAdapter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
-import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.cors.reactive.CorsConfigurationSource;
+import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
+import org.springframework.web.cors.CorsConfiguration;
 
 import reactor.core.publisher.Mono;
 
@@ -27,54 +29,43 @@ import java.util.stream.Collectors;
 @Configuration
 @EnableWebFluxSecurity
 @EnableReactiveMethodSecurity
-//@CrossOrigin(origins = "http://localhost:4200")
 public class SecurityConfig {
 
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
         http
+            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .csrf(ServerHttpSecurity.CsrfSpec::disable) // Deshabilitar CSRF para APIs REST
             .authorizeExchange(exchanges -> exchanges
-                
+                .pathMatchers(HttpMethod.OPTIONS).permitAll()
+
                 // ------------------------------------------------------------
                 // 1. RUTAS PÚBLICAS (No requieren login)
                 // ------------------------------------------------------------
-                // Servicios: Listar, detalle, barberos por servicio
                 .pathMatchers(HttpMethod.GET, "/servicios/public/**").permitAll()
-                // Barberos: Perfil, servicios por barbero
                 .pathMatchers(HttpMethod.GET, "/barberos/public/**").permitAll()
 
                 // ------------------------------------------------------------
                 // 2. ROL: ADMINISTRADOR
                 // ------------------------------------------------------------
-                // Servicios (Admin)
-                .pathMatchers("/servicios/admin/**").hasAuthority("ADMIN")
-                
-                // Barberos (Admin)
-                .pathMatchers("/barberos/admin/**").hasAuthority("ADMIN")
-                
-                // Reportes (Admin)
-                .pathMatchers("/reportes/admin/**").hasAuthority("ADMIN")
+                .pathMatchers("/servicios/admin/**").hasRole("ADMIN")
+                .pathMatchers("/barberos/admin/**").hasRole("ADMIN")
+                .pathMatchers("/reportes/admin/**").hasRole("ADMIN")
 
                 // ------------------------------------------------------------
                 // 3. ROL: CLIENTE
                 // ------------------------------------------------------------
-                // Reservas: Crear
-                .pathMatchers(HttpMethod.POST, "/reservas").hasAuthority("CLIENT")
-                // Reservas: Ver historial propio
-                .pathMatchers(HttpMethod.GET, "/reservas/cliente/**").hasAuthority("CLIENT")
-                // Reservas: Reprogramar y Cancelar (usamos * para el ID)
-                .pathMatchers(HttpMethod.PUT, "/reservas/*/reprogramar").hasAuthority("CLIENT")
-                .pathMatchers(HttpMethod.PUT, "/reservas/*/cancelar").hasAuthority("CLIENT")
+                .pathMatchers(HttpMethod.POST, "/reservas").hasRole("CLIENT")
+                .pathMatchers(HttpMethod.GET, "/reservas/cliente/**").hasRole("CLIENT")
+                .pathMatchers(HttpMethod.PUT, "/reservas/*/reprogramar").hasRole("CLIENT")
+                .pathMatchers(HttpMethod.PUT, "/reservas/*/cancelar").hasRole("CLIENT")
 
                 // ------------------------------------------------------------
                 // 4. ROL: BARBERO
                 // ------------------------------------------------------------
-                // Reservas: Ver agenda asignada
-                .pathMatchers(HttpMethod.GET, "/reservas/barbero/**").hasAuthority("BARBER")
-                // Reservas: Cambiar estado (INICIADA/FINALIZADA)
-                .pathMatchers(HttpMethod.PUT, "/reservas/*/estado").hasAuthority("BARBER")
-                // Reportes: Métricas propias
-                .pathMatchers(HttpMethod.GET, "/reportes/barbero/**").hasAuthority("BARBER")
+                .pathMatchers(HttpMethod.GET, "/reservas/barbero/**").hasRole("BARBER")
+                .pathMatchers(HttpMethod.PUT, "/reservas/*/estado").hasRole("BARBER")
+                .pathMatchers(HttpMethod.GET, "/reportes/barbero/**").hasRole("BARBER")
 
                 // ------------------------------------------------------------
                 // RESTO DE RUTAS
@@ -83,24 +74,41 @@ public class SecurityConfig {
             )
             .oauth2ResourceServer(oauth2 -> oauth2
                 .jwt(jwtSpec -> jwtSpec.jwtAuthenticationConverter(grantedAuthoritiesExtractor()))
-            )
-            .csrf(ServerHttpSecurity.CsrfSpec::disable); // Deshabilitar CSRF para APIs REST
+            );
 
         return http.build();
     }
 
-    // Método para convertir el JWT en roles de Spring Security
+    // Método para convertir el JWT en roles de Spring Security (reactivo)
     Converter<Jwt, Mono<AbstractAuthenticationToken>> grantedAuthoritiesExtractor() {
         JwtAuthenticationConverter jwtAuthenticationConverter = new JwtAuthenticationConverter();
         jwtAuthenticationConverter.setJwtGrantedAuthoritiesConverter(new KeycloakRealmRoleConverterWebFlux());
         return new ReactiveJwtAuthenticationConverterAdapter(jwtAuthenticationConverter);
     }
+
+    /**
+     * Configuración CORS centralizada.
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of("http://localhost:4200"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
+        config.setExposedHeaders(List.of("Authorization"));
+        config.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
 }
+
 
 // Convertidor de roles de Keycloak
 class KeycloakRealmRoleConverterWebFlux implements Converter<Jwt, Collection<GrantedAuthority>> {
-    // Asegúrate de que este ID coincida con tu cliente en Keycloak si usas roles de cliente
-    private static final String KEYCLOAK_CLIENT_ID_WITH_USER_ROLES = "frontend-client"; 
+    // Ajusta si usas roles de cliente con otro client-id
+    private static final String KEYCLOAK_CLIENT_ID_WITH_USER_ROLES = "frontend-client";
     private static final org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(KeycloakRealmRoleConverterWebFlux.class);
 
     @Override
@@ -112,30 +120,41 @@ class KeycloakRealmRoleConverterWebFlux implements Converter<Jwt, Collection<Gra
         }
 
         // 1. Buscar roles en resource_access (Roles de Cliente)
-        Map<String, Object> resourceAccess = (Map<String, Object>) claims.get("resource_access");
-        if (resourceAccess != null && resourceAccess.containsKey(KEYCLOAK_CLIENT_ID_WITH_USER_ROLES)) {
-            Map<String, Object> clientAccess = (Map<String, Object>) resourceAccess.get(KEYCLOAK_CLIENT_ID_WITH_USER_ROLES);
-            if (clientAccess != null && clientAccess.containsKey("roles")) {
-                List<String> clientRoles = (List<String>) clientAccess.getOrDefault("roles", Collections.emptyList());
-                if (!clientRoles.isEmpty()) {
-                    return clientRoles.stream()
-                            .map(SimpleGrantedAuthority::new) // Mapea tal cual viene (ej: "barbero")
-                            .collect(Collectors.toList());
+        try {
+            Map<String, Object> resourceAccess = (Map<String, Object>) claims.get("resource_access");
+            if (resourceAccess != null && resourceAccess.containsKey(KEYCLOAK_CLIENT_ID_WITH_USER_ROLES)) {
+                Map<String, Object> clientAccess = (Map<String, Object>) resourceAccess.get(KEYCLOAK_CLIENT_ID_WITH_USER_ROLES);
+                if (clientAccess != null && clientAccess.containsKey("roles")) {
+                    List<String> clientRoles = (List<String>) clientAccess.getOrDefault("roles", Collections.emptyList());
+                    if (!clientRoles.isEmpty()) {
+                        logger.info("Roles de cliente encontrados para {}: {}", KEYCLOAK_CLIENT_ID_WITH_USER_ROLES, clientRoles);
+                        return clientRoles.stream()
+                                .map(role -> new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
+                                .collect(Collectors.toList());
+                    }
                 }
             }
+        } catch (ClassCastException e) {
+            logger.debug("resource_access structure unexpected: {}", e.getMessage());
         }
 
         // 2. Buscar roles en realm_access (Roles de Reino)
-        Map<String, Object> realmAccess = (Map<String, Object>) claims.get("realm_access");
-        if (realmAccess != null && realmAccess.containsKey("roles")) {
-            List<String> realmRoles = (List<String>) realmAccess.getOrDefault("roles", Collections.emptyList());
-            if (!realmRoles.isEmpty()) {
-                return realmRoles.stream()
-                        .map(SimpleGrantedAuthority::new) // Mapea tal cual viene (ej: "admin")
-                        .collect(Collectors.toList());
+        try {
+            Map<String, Object> realmAccess = (Map<String, Object>) claims.get("realm_access");
+            if (realmAccess != null && realmAccess.containsKey("roles")) {
+                List<String> realmRoles = (List<String>) realmAccess.getOrDefault("roles", Collections.emptyList());
+                if (!realmRoles.isEmpty()) {
+                    logger.info("Roles de reino encontrados: {}", realmRoles);
+                    return realmRoles.stream()
+                            .map(role -> new SimpleGrantedAuthority("ROLE_" + role.toUpperCase()))
+                            .collect(Collectors.toList());
+                }
             }
+        } catch (ClassCastException e) {
+            logger.debug("realm_access structure unexpected: {}", e.getMessage());
         }
-        
+
+        logger.info("No se encontraron roles en el token JWT");
         return Collections.emptyList();
     }
 }
