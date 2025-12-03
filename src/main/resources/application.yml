@@ -8,25 +8,25 @@ spring:
     gateway:
       routes:
         - id: microservice-barberos
-          uri: http://localhost:8082
+          uri: ${URI_BARBEROS:http://localhost:8082}
           predicates:
             - Path=/barberos/**
           filters:
             - StripPrefix=1
         - id: microservice-servicios
-          uri: http://localhost:8083
+          uri: ${URI_SERVICIOS:http://localhost:8083}
           predicates:
             - Path=/servicios/**
           filters:
             - StripPrefix=1
         - id: microservice-reservas
-          uri: http://localhost:8084
+          uri: ${URI_RESERVAS:http://localhost:8084}
           predicates:
             - Path=/reservas/**
           filters:
             - StripPrefix=1
         - id: microservice-reportes
-          uri: http://localhost:8085
+          uri: ${URI_REPORTES:http://localhost:8085}
           predicates:
             - Path=/reportes/**
           filters:
@@ -35,7 +35,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:8080/realms/barbershop
+          issuer-uri: ${SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI:http://localhost:8080/realms/barbershop}
 
 logging:
   level:
